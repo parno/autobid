@@ -20,7 +20,7 @@ brew cask install pdftotext
 ## Optional
 
 I experimented with using the Python library `slate` to parse PDFs, but
-found it to be annoying slow.  The code is still available in `fetch.py`.
+found it to be annoying slow.  The code is still available in [analysis.py](analysis.py).
 If you want to enable it, you'll need to run:
 
 ```
@@ -30,10 +30,10 @@ pip install git+https://github.com/timClicks/slate.git
 
 # Standard Pipeline 
 
-Each script depends on the shared definitions in `common.py`.  Each one
+Each script depends on the shared definitions in [common.py](common.py).  Each one
 will describe its command-line options when run with `-h`.  Note that the
 scripts use the Python library `pickle` to save information, so if you
-alter the classes in `common.py`, you will be unlikely to be able to load
+alter the classes in [common.py](common.py), you will be unlikely to be able to load
 previously saved data.
 
 The current pipeline consists of the following steps:
@@ -43,7 +43,7 @@ The current pipeline consists of the following steps:
     `./fetch.py --cache pc.dat --csv pc-info.csv`
 
     This parses the CSV file `pc-info.csv` to find a name, email, and URL
-    for each PC member (see `parse_csv` in `common.py` for formatting
+    for each PC member (see `parse_csv` in [common.py](common.py) for formatting
     details; if your CSV has different header names, just change the
     relevant labels used as indices into the `row` variable).  The script
     fetches each URL and parses it for direct links to PDF files.  It then
@@ -104,6 +104,6 @@ The current pipeline consists of the following steps:
     mysql db_name -u user_name -p < bids.mysql 
     ```
 
-At any time, you can use the `util.py` script to check on the status of the
+At any time, you can use the [util.py](util.py) script to check on the status of the
 PC and to reset the status of an individual PC member or the entire PC, in
 case you want to rerun only a portion of the pipeline above.
