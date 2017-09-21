@@ -107,10 +107,10 @@ def process_reviewers(pc, html_only):
                         print "\nUnexpected error while fetching pdf %s!\n%s" % (link, traceback.format_exc())
                         continue
 
-                    time.sleep(1)
+                    time.sleep(0)
                 reviewer.status = "PDFs"
         if did_work:
-            time.sleep(3)
+            time.sleep(0)
         #raw_input('Press enter to continue...')
     print "Processing reviewers complete!"
 

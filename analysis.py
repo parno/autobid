@@ -131,6 +131,7 @@ def analyze_words(pdf_file):
     try:
         text = scrape_via_pdftotext(pdf_file)
         words = find_words(text)
+        return words        # Let StarSpace handle stemming and stop words
         stopped_words = [w for w in words if not w in stops]
         stemmed_words = [p_stemmer.stem(w) for w in stopped_words]
         return stemmed_words
@@ -150,39 +151,25 @@ def analyze_reviewer_papers(reviewer):
     weights = reviewer.make_pdf_weights()
 
     if reviewer.status == "PDFs":
-        count = Counter()  # Reset the count
+        count = []  # Reset the count
         pdfs = glob.glob('%s/*pdf' % reviewer.dir())
         for pdf_file in pdfs:
             print "Analyzing %s" % pdf_file
-            pdf_count = Counter()
+            pdf_count = []
             try:
                 words = analyze_words(pdf_file)
                 if words == None:
                     print "WARNING: No words returned"
                     continue
                 reviewer.num_words += len(words)
-                pdf_count.update(words)
                 old_words += words
-
-                # Adjust word count for this pdf by it's weight
-                pdf_name = pdf_file[pdf_file.rfind('/')+1:]
-                weight = 1
-                if pdf_name in weights:
-                    weight = weights[pdf_name]
-                else:
-                    print "WARNING: Failed to find a weight for PDF file %s" % pdf_name
-
-                weighted_count = {}
-                for word,word_count in pdf_count.iteritems():
-                    weighted_count[word] = word_count * weight
-
-                count.update(weighted_count)
+                count += [words]
             except:
                 print "\nUnexpected error while analyzing pdf %s!\n%s" % (pdf_file, traceback.format_exc())
                 continue
     return (count, old_words)
 
-def analyze_reviewers_papers(pc, j):
+def analyze_reviewers_papers(pc, j, train_file):
     print "Analyzing reviewers' papers..."
     reviewers = pc.reviewers()
     pool = None
@@ -196,6 +183,15 @@ def analyze_reviewers_papers(pc, j):
         reviewer.feature_vector = feature_vector
         reviewer.words = words
         reviewer.status = "Features"
+
+    with open(train_file, "w") as training:
+        for reviewer in pc.reviewers():
+            for words in reviewer.feature_vector:
+                for word in words:
+                    training.write(word)
+                    training.write(" ")
+                training.write("\t")
+            training.write("\n")
 
     print "Analyzing reviewers' papers complete!"
 
@@ -212,8 +208,7 @@ def analyze_submission(pdf_file):
     print "Analyzing %s" % pdf_file
     words = analyze_words(pdf_file)
 
-    feature_vector = Counter()
-    feature_vector.update(words)
+    feature_vector = words
 
     return (words, feature_vector)
 
@@ -242,6 +237,14 @@ def analyze_submissions(submission_dir, j):
             sub.feature_vector = feature_vector
             sub.words = words
             submissions[paper_id] = sub
+
+    with open("%s/submissions.txt" % submission_dir, "w") as subtext:
+        for sub in submissions.values():
+            subtext.write("SubmissionID%s " % sub.id)
+            for word in sub.feature_vector:
+                subtext.write(word)
+                subtext.write(" ")
+            subtext.write("\n")
 
     return submissions
 
@@ -290,6 +293,7 @@ def main():
     parser.add_argument('-c', '--cache', help="Use the specified file for caching reviewer status and information", required=False)
     parser.add_argument('--submissions', action='store', help="Directory of submissions", required=False)
     parser.add_argument('--corpus', action='store', help="Directory of PDFs from which to build a topic (LDA) model", required=False)
+    parser.add_argument('--train', action='store', help="Filename for training input", required=False)
     parser.add_argument('-j', action='store', help="Number of processes to use", required=False)
     
     args = parser.parse_args()
@@ -298,7 +302,7 @@ def main():
 
     if not (args.cache == None):
         pc.load(args.cache)
-        analyze_reviewers_papers(pc, args.j)
+        analyze_reviewers_papers(pc, args.j, args.train)
         pc.save(args.cache)
 
     if not (args.submissions == None):
