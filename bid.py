@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from common import *
+import analysis
 
 import argparse
 import os
@@ -167,6 +168,13 @@ def parse_real_prefs(realprefs_csvfile):
     print "Parsing real preferences complete!"
     return prefs 
 
+def create_id_to_pc_map(pc):
+    id_map = {}
+    for reviewer in pc.reviewers():
+        if not(reviewer.sql_id is None):
+            id_map[reviewer.sql_id] = reviewer
+    return id_map
+
 def split_real_prefs(pc, realprefs_csvfile, label):
     real_prefs = parse_real_prefs(realprefs_csvfile)
 
@@ -199,7 +207,7 @@ def load_2017_prefs(reviewers):
                     pref = -200
                     if row['preference'] == 'conflict':
                         pref = -100
-                    elif is_digit(row['preference']):
+                    elif analysis.is_digit(row['preference']):
                         pref = int(row['preference'])
                     else:
                         print "WARNING: Unknown preference %s for 2017 reviewer %s" % (row['preference'], reviewer)
@@ -229,6 +237,36 @@ def load_model(corpus_dir):
     print "Loading LDA model complete"
     return lda_model
 
+def ingest_bids(pc, csv_file, submission_dir, top_k):
+    prefs = parse_real_prefs(csv_file)
+    id_map = create_id_to_pc_map(pc)
+    submissions = load_submissions(submission_dir)
+
+#    for key in submissions.keys():
+#        print "Submission key: %s",
+#        if analysis.is_digit(key):
+#            print " is a digit"
+#        else:
+#            print " is not a digit"
+
+    for id,bid in prefs.iteritems():
+        if not (id in id_map):
+            print "WARNING: Found bid for ID %s, but no matching PC member!" % id
+            continue
+        reviewer = id_map[id]
+        sorted_bid = sorted(bid, reverse=True, key=lambda b:b.score)
+
+        # Take the top k bids
+        top_scores = sorted_bid[:min(top_k, len(sorted_bid))]
+
+        for bid in top_scores:
+            sub_id = int(bid.submission.id)
+            if not sub_id in submissions:
+                print "WARNING: Found a bid for submission ID %s but couldn't find corresponding submission in submissions" % sub_id
+                continue
+            submission = submissions[sub_id]
+            # TODO: Assign bid.submission's content to reviewer
+
 
 def create_bids(pc, submissions, lda_model):
     for reviewer in pc.reviewers():
@@ -244,16 +282,35 @@ def main():
     parser.add_argument('--submissions', action='store', help="Directory of submissions", required=False)
     parser.add_argument('--bid', action='store', help="Calculate bids for one reviewer", required=False)
     parser.add_argument('--corpus', action='store', help="Directory of PDFs from which to build a topic (LDA) model", required=False)
+
     parser.add_argument('--realprefs', action='store', help="File containing real preferences from the MySQL db via:\n\t%s" % bid_sql, required=False)
     parser.add_argument('--reallabel', action='store', help="Label for individual real-preference files", required=False)
-    parser.add_argument('--s1', action='store', help="First submission to compare a reviewer's calculated bid", required=False)
-    parser.add_argument('--s2', action='store', help="Second submission to compare a reviewer's calculated bid", required=False)
-    parser.add_argument('--b2017', action='store_true', default=False, help="Load 2017 bids", required=False)
+
+    parser.add_argument('--learn', action='store_true', help="Learn from previous bids --realprefs csv file", required=False)
+    parser.add_argument('--top_k', action='store', help="Learn from the top k highest bids for each reviewer", required=False)
+
+    #parser.add_argument('--s1', action='store', help="First submission to compare a reviewer's calculated bid", required=False)
+    #parser.add_argument('--s2', action='store', help="Second submission to compare a reviewer's calculated bid", required=False)
+    #parser.add_argument('--b2017', action='store_true', default=False, help="Load 2017 bids", required=False)
     
     args = parser.parse_args()
 
     pc = PC()
     pc.load(args.cache)
+
+    if args.learn:
+        if args.submissions is None:
+            print "Must specify a directory of submissions via --submissions"
+            sys.exit(2)
+        if args.realprefs is None:
+            print "Must specify --realprefs"
+            sys.exit(3)
+        if args.top_k is None:
+            print "Must specify --top_k"
+            sys.exit(4)
+
+        ingest_bids(pc, args.realprefs, args.submissions, args.top_k)
+        sys.exit(0)
 
     if not (args.realprefs is None):
         if args.reallabel is None:
@@ -264,8 +321,8 @@ def main():
             sys.exit(0)
 
     if args.submissions is None or args.corpus is None:
-        print "Must specifcy --submissions and --corpus to generate bids"
-        sys.exit(2)
+        print "Must specify --submissions and --corpus to generate bids"
+        sys.exit(5)
 
     submissions = load_submissions(args.submissions)
     

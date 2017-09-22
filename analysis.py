@@ -207,7 +207,6 @@ def analyze_submission(pdf_file):
     num_words = 0
     print "Analyzing %s" % pdf_file
     words = analyze_words(pdf_file)
-
     feature_vector = words
 
     return (words, feature_vector)
