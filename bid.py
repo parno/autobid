@@ -242,13 +242,6 @@ def ingest_bids(pc, csv_file, submission_dir, top_k):
     id_map = create_id_to_pc_map(pc)
     submissions = load_submissions(submission_dir)
 
-#    for key in submissions.keys():
-#        print "Submission key: %s",
-#        if analysis.is_digit(key):
-#            print " is a digit"
-#        else:
-#            print " is not a digit"
-
     for id,bid in prefs.iteritems():
         if not (id in id_map):
             print "WARNING: Found bid for ID %s, but no matching PC member!" % id
