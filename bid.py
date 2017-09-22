@@ -10,6 +10,7 @@ import re
 import math
 import csv
 import sys
+import random
 
 import gensim                       # sudo pip install -U --ignore-installed gensim
 from gensim import corpora, models
@@ -260,6 +261,42 @@ def ingest_bids(pc, csv_file, submission_dir, top_k):
             submission = submissions[sub_id]
             reviewer.positive_bids.append(submission)
 
+def train(pc, train_file, num_examples):
+    with open(train_file, "w") as training:
+        for reviewer in pc.reviewers():
+            examples = [sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
+
+            # If necessary augment the positive bids with the reviewer's own work
+            if len(examples) < num_examples:
+                num_extra_examples = num_examples - len(examples)
+                extra_examples = random.sample(reviewer.feature_vector, min(num_extra_examples,len(reviewer.feature_vector)))
+                examples += extra_examples
+            
+            for example in examples:
+                # Input is all of the reviewer's work
+                for words in reviewer.feature_vector:
+                    for word in words:
+                        training.write(word)
+                        training.write(" ")
+
+                training.write("\t")
+
+                # Output is the example
+                for word in example:
+                    training.write(word)
+                    training.write(" ")
+
+                training.write("\n")
+
+def gen_sub_file(submissions, sub_file):
+    with open(sub_file, "w") as subtext:
+        for sub in submissions.values():
+            subtext.write("SubmissionID%s " % sub.id)
+            for word in sub.feature_vector:
+                subtext.write(word)
+                subtext.write(" ")
+            subtext.write("\n")
+
 
 def create_bids(pc, submissions, lda_model):
     for reviewer in pc.reviewers():
@@ -273,6 +310,7 @@ def main():
     parser = argparse.ArgumentParser(description='Generate reviewer bids')
     parser.add_argument('-c', '--cache', help="Use the specified file for caching reviewer data", required=True)
     parser.add_argument('--submissions', action='store', help="Directory of submissions", required=False)
+    parser.add_argument('--subfile', action='store', help="File to store submission data for StarSpace", required=False)
     parser.add_argument('--bid', action='store', help="Calculate bids for one reviewer", required=False)
     parser.add_argument('--corpus', action='store', help="Directory of PDFs from which to build a topic (LDA) model", required=False)
 
@@ -282,6 +320,9 @@ def main():
     parser.add_argument('--learn', action='store_true', help="Learn from previous bids --realprefs csv file", required=False)
     parser.add_argument('--top_k', action='store', type=int, help="Learn from the top k highest bids for each reviewer", required=False)
 
+    parser.add_argument('--train', action='store', help="Create a training file", required=False)
+    parser.add_argument('--train_count', action='store', type=int, help="Use # examples per PC member", required=False)
+
     #parser.add_argument('--s1', action='store', help="First submission to compare a reviewer's calculated bid", required=False)
     #parser.add_argument('--s2', action='store', help="Second submission to compare a reviewer's calculated bid", required=False)
     #parser.add_argument('--b2017', action='store_true', default=False, help="Load 2017 bids", required=False)
@@ -290,6 +331,14 @@ def main():
 
     pc = PC()
     pc.load(args.cache)
+
+    if not args.subfile is None:
+        if args.submissions is None: 
+            print "Must specify --submissions"
+            sys.exit(5)
+        submissions = load_submissions(args.submissions)
+        gen_sub_file(submissions, args.subfile)
+        
 
     if args.learn:
         if args.submissions is None:
@@ -304,6 +353,13 @@ def main():
 
         ingest_bids(pc, args.realprefs, args.submissions, args.top_k)
         pc.save(args.cache)
+        sys.exit(0)
+
+    if not args.train is None:
+        if args.train_count is None:
+            print "Must specify --train_count"
+            sys.exit(6)
+        train(pc, args.train, args.train_count)
         sys.exit(0)
 
     if not (args.realprefs is None):

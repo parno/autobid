@@ -184,15 +184,6 @@ def analyze_reviewers_papers(pc, j, train_file):
         reviewer.words = words
         reviewer.status = "Features"
 
-    with open(train_file, "w") as training:
-        for reviewer in pc.reviewers():
-            for words in reviewer.feature_vector:
-                for word in words:
-                    training.write(word)
-                    training.write(" ")
-                training.write("\t")
-            training.write("\n")
-
     print "Analyzing reviewers' papers complete!"
 
 
@@ -236,14 +227,6 @@ def analyze_submissions(submission_dir, j):
             sub.feature_vector = feature_vector
             sub.words = words
             submissions[paper_id] = sub
-
-    with open("%s/submissions.txt" % submission_dir, "w") as subtext:
-        for sub in submissions.values():
-            subtext.write("SubmissionID%s " % sub.id)
-            for word in sub.feature_vector:
-                subtext.write(word)
-                subtext.write(" ")
-            subtext.write("\n")
 
     return submissions
 
