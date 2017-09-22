@@ -265,7 +265,7 @@ def ingest_bids(pc, csv_file, submission_dir, top_k):
                 print "WARNING: Found a bid for submission ID %s but couldn't find corresponding submission in submissions" % sub_id
                 continue
             submission = submissions[sub_id]
-            # TODO: Assign bid.submission's content to reviewer
+            reviewer.positive_bids.append(submission)
 
 
 def create_bids(pc, submissions, lda_model):
@@ -287,7 +287,7 @@ def main():
     parser.add_argument('--reallabel', action='store', help="Label for individual real-preference files", required=False)
 
     parser.add_argument('--learn', action='store_true', help="Learn from previous bids --realprefs csv file", required=False)
-    parser.add_argument('--top_k', action='store', help="Learn from the top k highest bids for each reviewer", required=False)
+    parser.add_argument('--top_k', action='store', type=int, help="Learn from the top k highest bids for each reviewer", required=False)
 
     #parser.add_argument('--s1', action='store', help="First submission to compare a reviewer's calculated bid", required=False)
     #parser.add_argument('--s2', action='store', help="Second submission to compare a reviewer's calculated bid", required=False)
@@ -306,10 +306,11 @@ def main():
             print "Must specify --realprefs"
             sys.exit(3)
         if args.top_k is None:
-            print "Must specify --top_k"
+            print "Must specify --top_k as integer"
             sys.exit(4)
 
         ingest_bids(pc, args.realprefs, args.submissions, args.top_k)
+        pc.save(args.cache)
         sys.exit(0)
 
     if not (args.realprefs is None):

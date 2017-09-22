@@ -18,11 +18,17 @@ def main():
     parser.add_argument('--upgrade', action='store_true', help="Upgrade to a new PC class version", required=False)
     parser.add_argument('--pcids', action='store', 
                         help="CSV file containing tab-delimited PC info: <first> <last> <ID>, where ID is the MySQL ID", required=False)
+    parser.add_argument('--reset_bids', action='store_true', help="Reset each member's list of positive bids", required=False)
     
     args = parser.parse_args()
 
     pc = PC()
     pc.load(args.cache)
+
+    if args.reset_bids:
+        for reviewer in pc.reviewers():
+            reviewer.positive_bids = []
+        pc.save(args.cache)
 
     if args.upgrade:
         pc.upgrade() 
