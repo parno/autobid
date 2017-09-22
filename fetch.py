@@ -16,7 +16,7 @@ import time
 import csv
 import hashlib
 import slate
-import pickle
+import cPickle as pickle
 import sys
 import traceback
 from collections import Counter

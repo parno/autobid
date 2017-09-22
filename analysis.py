@@ -11,7 +11,7 @@ import random
 from subprocess import Popen, PIPE
 import subprocess
 import slate
-import pickle
+import cPickle as pickle
 import sys
 import traceback
 from collections import Counter

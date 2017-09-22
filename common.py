@@ -3,7 +3,7 @@
 import os
 from urlparse import urlparse
 import csv
-import pickle
+import cPickle as pickle
 from collections import Counter
 
 class Config:
