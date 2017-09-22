@@ -1,0 +1,6 @@
+*pyc
+pc_data/
+backups/
+prefs/
+submissions/
+vim.session
