@@ -167,24 +167,22 @@ def parse_real_prefs(realprefs_csvfile):
     print "Parsing real preferences complete!"
     return prefs 
 
-def dump_real_prefs(realprefs_csvfile, pc_ids_file, reviewers):
-    id_mapping = match_reviewers_to_ids(reviewers, pc_ids_file)
+def split_real_prefs(pc, realprefs_csvfile, label):
     real_prefs = parse_real_prefs(realprefs_csvfile)
 
-    print "Dumping reviewers' real preferences..."
+    print "Splitting reviewers' real preferences..."
     for reviewer in reviewers:
-        if not reviewer in id_mapping:
-            print "Couldn't find an id for %s.  Skipping." % reviewer
+        if reviewer.sql_id is None:
+            print "Couldn't find an id for %s.  Skipping.  Consider using util.py with --pcids" % reviewer
             continue
-        id = id_mapping[reviewer]
 
-        if not id in real_prefs:
-            print "Couldn't find an id %s for reviewer %s in set of real preferences.  Skipping." % (id, reviewer)
+        if not reviewer.sql_id in real_prefs:
+            print "Couldn't find an id %s for reviewer %s in set of real preferences.  Skipping." % (reviewer.mysql_id, reviewer)
             continue
-        real_bids = real_prefs[id]
+        real_bids = real_prefs[reviewer.mysql_id]
 
-        write_bid_file(reviewers[reviewer].dir(), "real_bid.csv", real_bids)
-    print "Dumping reviewers' real preferences complete!"
+        write_bid_file(reviewers[reviewer].dir(), "real_bid.%s.csv" % label, real_bids)
+    print "Splitting reviewers' real preferences complete!"
 
 
 def load_2017_prefs(reviewers):
@@ -237,12 +235,17 @@ def create_bids(pc, submissions, lda_model):
         create_reviewer_bid(reviewer, submissions, lda_model)
 
 def main():
+    bid_sql = "select pt.paperId, pr.contactId, pr.preference from " +
+              "PaperTag as pt inner join PaperReviewPreference as pr " +
+              "on pr.paperId = pt.paperId where tag = 'september';"
+
     parser = argparse.ArgumentParser(description='Generate reviewer bids')
     parser.add_argument('-c', '--cache', help="Use the specified file for caching reviewer data", required=True)
     parser.add_argument('--submissions', action='store', help="Directory of submissions", required=True)
     parser.add_argument('--bid', action='store', help="Calculate bids for one reviewer", required=False)
     parser.add_argument('--corpus', action='store', help="Directory of PDFs from which to build a topic (LDA) model", required=True)
-    parser.add_argument('--realprefs', action='store', help="File containing real preferences from the MySQL db", required=False)
+    parser.add_argument('--realprefs', action='store', help="File containing real preferences from the MySQL db via:\n\t%s" % bid_sql, required=False)
+    parser.add_argument('--reallabel', action='store', help="Label for individual real-preference files", required=False)
     parser.add_argument('--s1', action='store', help="First submission to compare a reviewer's calculated bid", required=False)
     parser.add_argument('--s2', action='store', help="Second submission to compare a reviewer's calculated bid", required=False)
     parser.add_argument('--b2017', action='store_true', default=False, help="Load 2017 bids", required=False)
@@ -251,6 +254,16 @@ def main():
 
     pc = PC()
     pc.load(args.cache)
+
+    if not (args.realprefs is None):
+        if args.reallabel is None:
+            print "Must specify a label for the per-PC member real-preferences file via --reallabel"
+            sys.exit(1)
+        else:
+            split_real_prefs(pc, args.realprefs, args.reallabel)
+            sys.exit(0)
+
+
 
     submissions = load_submissions(args.submissions)
     
