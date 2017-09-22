@@ -22,6 +22,7 @@ class Reviewer:
         self.html = None
         self.status = "Init"
         self.sql_id = None
+        self.positive_bids = []
 
         if len(self.first) == 0 or len(self.last) == 0:
             print "\n\nWarning!  Missing information for %s\n\n" % self
@@ -68,6 +69,34 @@ class Reviewer:
             self.feature_vector = None
             self.words = []
 
+    def upgrade(self, reviewer):
+        self.first = reviewer.first
+        self.last = reviewer.last
+        self.email = reviewer.email
+        self.url = reviewer.url
+        self.num_words = reviewer.num_words
+        self.pdf_links = reviewer.pdf_links
+        self.feature_vector = reviewer.feature_vector
+        self.words = reviewer.words
+        self.html = reviewer.html
+        self.status = reviewer.status
+        self.sql_id = reviewer.sql_id
+        self.positive_bids = reviewer.positive_bids
+
+class ReviewerUpgrade:
+    def __init__(self, reviewer):
+        self.first = reviewer.first
+        self.last = reviewer.last
+        self.email = reviewer.email
+        self.url = reviewer.url
+        self.num_words = reviewer.num_words
+        self.pdf_links = reviewer.pdf_links
+        self.feature_vector = reviewer.feature_vector
+        self.words = reviewer.words
+        self.html = reviewer.html
+        self.status = reviewer.status
+        self.sql_id = reviewer.sql_id
+        self.positive_bids = []
 
 class PDF:
     def __init__(self, index, url):
@@ -111,8 +140,10 @@ class PC:
         return self.__reviewers[reviewer_name]
 
     def save(self, filename):
+        print "Saving reviewer information..."
         with open(filename, "wb") as pickler:
             pickle.dump(self.__reviewers, pickler)
+        print "Saving reviewer information complete!"
 
     def load(self, filename):
         if os.path.exists(filename):
@@ -135,6 +166,15 @@ class PC:
     def set_status(self, status):
         for reviewer in self.reviewers():
             reviewer.set_status(status)
+
+    def upgrade(self):
+        new_reviewers = {}
+        for key,val in self.__reviewers.iteritems():
+            #new_reviewers[key] = ReviewerUpgrade(val)
+            new_reviewers[key] = Reviewer("first", "last", "email", "url")
+            new_reviewers[key].upgrade(val)
+        self.__reviewers = new_reviewers
+
 
     def parse_csv(self, csv_file_name):
         with open(csv_file_name, 'rb') as csv_file:

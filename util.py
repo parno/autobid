@@ -5,6 +5,8 @@ from common import *
 import argparse
 import sys
 
+
+
 def main():
     parser = argparse.ArgumentParser(description="Manipulate PC state.  Valid PC status options include:"
                                                + "'Init', 'HTML', 'PDFs', 'Features'.  Each indicates which stage has been completed ")
@@ -13,6 +15,7 @@ def main():
     parser.add_argument('--reviewer', action='store', help="Display status of one reviewer", required=False)
     parser.add_argument('--status', action='store', help="Update reviewer specified with --reviewer to the provided status", required=False)
     parser.add_argument('--pcstatus', action='store', help="Set entire PC's status", required=False)
+    parser.add_argument('--upgrade', action='store_true', help="Upgrade to a new PC class version", required=False)
     parser.add_argument('--pcids', action='store', 
                         help="CSV file containing tab-delimited PC info: <first> <last> <ID>, where ID is the MySQL ID", required=False)
     
@@ -20,6 +23,10 @@ def main():
 
     pc = PC()
     pc.load(args.cache)
+
+    if args.upgrade:
+        pc.upgrade() 
+        pc.save(args.cache)
 
     if args.pc:
         pc.status()
