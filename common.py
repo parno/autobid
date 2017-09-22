@@ -7,7 +7,7 @@ import cPickle as pickle
 from collections import Counter
 
 class Config:
-    data_dir = "data"
+    pc_data_dir = "pc_data"
 
 class Reviewer:
     def __init__(self, first, last, email, url):
@@ -30,7 +30,7 @@ class Reviewer:
         return "%s %s" % (self.first, self.last)
 
     def dir(self):
-        return os.path.join(data_dir, self.name().replace(' ', '_'))
+        return os.path.join(Config.pc_data_dir, self.name().replace(' ', '_'))
 
     def __str__(self):
         return self.name() + " %s %s" % (self.email, self.url)
