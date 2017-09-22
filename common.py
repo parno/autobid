@@ -6,6 +6,9 @@ import csv
 import pickle
 from collections import Counter
 
+class Config:
+    data_dir = "data"
+
 class Reviewer:
     def __init__(self, first, last, email, url):
         self.first = first
@@ -27,7 +30,7 @@ class Reviewer:
         return "%s %s" % (self.first, self.last)
 
     def dir(self):
-        return self.name().replace(' ', '_')
+        return os.path.join(data_dir, self.name().replace(' ', '_'))
 
     def __str__(self):
         return self.name() + " %s %s" % (self.email, self.url)
