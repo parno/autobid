@@ -169,7 +169,7 @@ def analyze_reviewer_papers(reviewer):
                 continue
     return (count, old_words)
 
-def analyze_reviewers_papers(pc, j, train_file):
+def analyze_reviewers_papers(pc, j):
     print "Analyzing reviewers' papers..."
     reviewers = pc.reviewers()
     pool = None
@@ -275,7 +275,6 @@ def main():
     parser.add_argument('-c', '--cache', help="Use the specified file for caching reviewer status and information", required=False)
     parser.add_argument('--submissions', action='store', help="Directory of submissions", required=False)
     parser.add_argument('--corpus', action='store', help="Directory of PDFs from which to build a topic (LDA) model", required=False)
-    parser.add_argument('--train', action='store', help="Filename for training input", required=False)
     parser.add_argument('-j', action='store', help="Number of processes to use", required=False)
     
     args = parser.parse_args()
@@ -284,7 +283,7 @@ def main():
 
     if not (args.cache == None):
         pc.load(args.cache)
-        analyze_reviewers_papers(pc, args.j, args.train)
+        analyze_reviewers_papers(pc, args.j)
         pc.save(args.cache)
 
     if not (args.submissions == None):

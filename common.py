@@ -57,7 +57,7 @@ class Reviewer:
         return weights
 
     def display_status(self, max_width=1):
-        print "%s  %s\t%s\t%d\t%d" % (self.name().ljust(max_width), self.status, self.sql_id, len(self.words), len(self.positive_bids))
+        print "%s  %s\t%s\t%d\t%d\t%d" % (self.name().ljust(max_width), self.status, self.sql_id, len(self.words), len(self.positive_bids), len(self.feature_vector))
 
     def set_status(self, status):
         self.status = status

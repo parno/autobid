@@ -262,8 +262,10 @@ def ingest_bids(pc, csv_file, submission_dir, top_k):
             reviewer.positive_bids.append(submission)
 
 def train(pc, train_file, num_examples):
+    print "Building a training file..."
     with open(train_file, "w") as training:
         for reviewer in pc.reviewers():
+            print "Creating training examples for %s" % reviewer
             examples = [sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
 
             # If necessary augment the positive bids with the reviewer's own work
@@ -287,6 +289,7 @@ def train(pc, train_file, num_examples):
                     training.write(" ")
 
                 training.write("\n")
+    print "Building a training file complete!"
 
 def gen_sub_file(submissions, sub_file):
     with open(sub_file, "w") as subtext:
