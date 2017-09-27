@@ -265,41 +265,61 @@ def train(pc, train_file, num_examples):
     print "Building a training file..."
     with open(train_file, "w") as training:
         for reviewer in pc.reviewers():
-            print "Creating training examples for %s" % reviewer
-            examples = [sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
+            if not reviewer.sql_id is None:
+                print "Creating training examples for %s" % reviewer
+                output.write("%s\t" % reviewer.sql_id)
+                examples = [sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
 
-            # If necessary augment the positive bids with the reviewer's own work
-            if len(examples) < num_examples:
-                num_extra_examples = num_examples - len(examples)
-                extra_examples = random.sample(reviewer.feature_vector, min(num_extra_examples,len(reviewer.feature_vector)))
-                examples += extra_examples
-            
-            for example in examples:
-                # Input is all of the reviewer's work
-                for words in reviewer.feature_vector:
-                    for word in words:
+                # If necessary augment the positive bids with the reviewer's own work
+                if len(examples) < num_examples:
+                    num_extra_examples = num_examples - len(examples)
+                    extra_examples = random.sample(reviewer.feature_vector, min(num_extra_examples,len(reviewer.feature_vector)))
+                    examples += extra_examples
+                
+                for example in examples:
+                    # Input is all of the reviewer's work
+                    for words in reviewer.feature_vector:
+                        for word in words:
+                            training.write(word)
+                            training.write(" ")
+
+                    training.write("\t")
+
+                    # Output is the example
+                    for word in example:
                         training.write(word)
                         training.write(" ")
 
-                training.write("\t")
-
-                # Output is the example
-                for word in example:
-                    training.write(word)
-                    training.write(" ")
-
-                training.write("\n")
+                    training.write("\n")
     print "Building a training file complete!"
 
 def gen_sub_file(submissions, sub_file):
     with open(sub_file, "w") as subtext:
         for sub in submissions.values():
-            subtext.write("SubmissionID%s " % sub.id)
+            subtext.write("%s " % sub.id)
             for word in sub.feature_vector:
                 subtext.write(word)
                 subtext.write(" ")
             subtext.write("\n")
 
+def gen_pc_file(pc, pc_file):
+    with open(pc_file, "w") as output:
+        for reviewer in pc.reviewers():
+            if not reviewer.sql_id is None:
+                output.write("%s\t" % reviewer.sql_id)
+                for words in reviewer.feature_vector:
+                    for word in words:
+                        output.write(word)
+                        output.write(" ")
+                if len(reviewer.feature_vector) > 0:
+                    # Pick an arbitrary publication to serve as the ``test'' input, which we ignore
+                    output.write('\t')
+                    words = reviewer.feature_vector[0]
+                    for word in words:
+                        output.write(word)
+                        output.write(" ")
+
+                output.write("\n")
 
 def create_bids(pc, submissions, lda_model):
     for reviewer in pc.reviewers():
@@ -314,6 +334,7 @@ def main():
     parser.add_argument('-c', '--cache', help="Use the specified file for caching reviewer data", required=True)
     parser.add_argument('--submissions', action='store', help="Directory of submissions", required=False)
     parser.add_argument('--subfile', action='store', help="File to store submission data for StarSpace", required=False)
+    parser.add_argument('--pcfile', action='store', help="File to store PC (base) data for StarSpace", required=False)
     parser.add_argument('--bid', action='store', help="Calculate bids for one reviewer", required=False)
     parser.add_argument('--corpus', action='store', help="Directory of PDFs from which to build a topic (LDA) model", required=False)
 
@@ -332,15 +353,20 @@ def main():
     
     args = parser.parse_args()
 
-    pc = PC()
-    pc.load(args.cache)
-
     if not args.subfile is None:
         if args.submissions is None: 
             print "Must specify --submissions"
             sys.exit(5)
         submissions = load_submissions(args.submissions)
         gen_sub_file(submissions, args.subfile)
+        sys.exit(0)
+
+    pc = PC()
+    pc.load(args.cache)
+
+    if not args.pcfile is None:
+        gen_pc_file(pc, args.pcfile)
+        sys.exit(0)
         
 
     if args.learn:
