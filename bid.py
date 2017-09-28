@@ -261,13 +261,13 @@ def ingest_bids(pc, csv_file, submission_dir, top_k):
             submission = submissions[sub_id]
             reviewer.positive_bids.append(submission)
 
-def train(pc, train_file, num_examples):
+def train_bid_based(pc, train_file, num_examples):
     print "Building a training file..."
     with open(train_file, "w") as training:
         for reviewer in pc.reviewers():
             if not reviewer.sql_id is None:
-                print "Creating training examples for %s" % reviewer
-                output.write("%s\t" % reviewer.sql_id)
+                print "Creating training examples for %s" % reviewer.name()
+                training.write("%s\t" % reviewer.sql_id)
                 examples = [sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
 
                 # If necessary augment the positive bids with the reviewer's own work
@@ -291,6 +291,23 @@ def train(pc, train_file, num_examples):
                         training.write(" ")
 
                     training.write("\n")
+    print "Building a training file complete!"
+
+def train(pc, train_file, num_examples):
+    print "Building a training file..."
+    with open(train_file, "w") as training:
+        for reviewer in pc.reviewers():
+            if not reviewer.sql_id is None:
+                print "Creating training examples for %s" % reviewer.name()
+                training.write("%s\t" % reviewer.sql_id)
+
+                # Input and label is all of the reviewer's work
+                for words in reviewer.feature_vector:
+                    for word in words:
+                        training.write(word)
+                        training.write(" ")
+                    training.write("\t")
+                training.write("\n")
     print "Building a training file complete!"
 
 def gen_sub_file(submissions, sub_file):
@@ -321,6 +338,33 @@ def gen_pc_file(pc, pc_file):
 
                 output.write("\n")
 
+def process_starspace_bid(reviewer, bids, label):
+    bids = normalize_bids(bids)
+    write_bid_file(reviewer.dir(), "predicted_bids.starspace.%s.txt" % label, bids)
+
+
+def parse_starspace_predictions(prediction_file, pc, submissions, label):
+    id_map = create_id_to_pc_map(pc)
+    reviewer = None
+    bids = []
+    with open(prediction_file) as predictions:
+        for line in predictions.readlines():
+            result = re.search("ID: ([\d]+)", line)
+            if result:
+                if not reviewer is None:
+                    # Write out the previous reviewer's bids
+                    process_starspace_bid(reviewer, bids, label)
+                sql_id = result.group(1)
+                reviewer = id_map[sql_id]
+                bids = []
+            result = re.search("\(--\)\s*\[([\d.]+)\]\s*([\d]+)", line)
+            if result:
+                pref = result.group(1)
+                sub_id = int(result.group(2))
+                bids.append(Bid(score=float(pref), submission=submissions[sub_id]))
+        # Write out the last reviewer
+        process_starspace_bid(reviewer, bids, label)
+
 def create_bids(pc, submissions, lda_model):
     for reviewer in pc.reviewers():
         create_reviewer_bid(reviewer, submissions, lda_model)
@@ -347,19 +391,22 @@ def main():
     parser.add_argument('--train', action='store', help="Create a training file", required=False)
     parser.add_argument('--train_count', action='store', type=int, help="Use # examples per PC member", required=False)
 
+    parser.add_argument('--predictions', action='store', help="File to parse for StarSpace predictions", required=False)
+    parser.add_argument('--bidlabel', action='store', help="Label for generated bid files", required=False)
+
     #parser.add_argument('--s1', action='store', help="First submission to compare a reviewer's calculated bid", required=False)
     #parser.add_argument('--s2', action='store', help="Second submission to compare a reviewer's calculated bid", required=False)
     #parser.add_argument('--b2017', action='store_true', default=False, help="Load 2017 bids", required=False)
     
     args = parser.parse_args()
 
-    if not args.subfile is None:
-        if args.submissions is None: 
-            print "Must specify --submissions"
-            sys.exit(5)
-        submissions = load_submissions(args.submissions)
-        gen_sub_file(submissions, args.subfile)
-        sys.exit(0)
+#    if not args.subfile is None:
+#        if args.submissions is None: 
+#            print "Must specify --submissions"
+#            sys.exit(5)
+#        submissions = load_submissions(args.submissions)
+#        gen_sub_file(submissions, args.subfile)
+#        sys.exit(0)
 
     pc = PC()
     pc.load(args.cache)
@@ -399,12 +446,23 @@ def main():
             split_real_prefs(pc, args.realprefs, args.reallabel)
             sys.exit(0)
 
-    if args.submissions is None or args.corpus is None:
-        print "Must specify --submissions and --corpus to generate bids"
+    if args.submissions is None:
+        print "Must specify --submissions to generate bids"
         sys.exit(5)
 
     submissions = load_submissions(args.submissions)
+
+    if not args.predictions is None:
+        if args.bidlabel is None:
+            print "Must specify --bidlabel"
+            sys.exit(7)
+        parse_starspace_predictions(args.predictions, pc, submissions, args.bidlabel)
+        sys.exit(6)
     
+    if args.corpus is None:
+        print "Must specify --corpus to generate bids"
+        sys.exit(5)
+
     lda_model = load_model(args.corpus)
 
 #    if args.b2017:
