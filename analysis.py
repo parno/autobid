@@ -292,6 +292,8 @@ def main():
             submissions = analyze_submissions(args.submissions, args.j)
             with open(pickle_file, "wb") as pickler:
                 pickle.dump(submissions, pickler)
+        else:
+            print "Found existing pickled file %s.  Consider moving or deleting it." % pickle_file
 
     if not (args.corpus == None):
         build_lda_model(args.corpus, args.j)

@@ -261,6 +261,9 @@ def ingest_bids(pc, csv_file, submission_dir, top_k):
             submission = submissions[sub_id]
             reviewer.positive_bids.append(submission)
 
+# StarSpace mode 4: All of a reviewer's words are input, 
+# output is a paper they bid positively on before 
+# (or one of their own when there aren't enough bids)
 def train_bid_based(pc, train_file, num_examples):
     print "Building a training file..."
     with open(train_file, "w") as training:
@@ -293,7 +296,22 @@ def train_bid_based(pc, train_file, num_examples):
                     training.write("\n")
     print "Building a training file complete!"
 
-def train(pc, train_file, num_examples):
+#def write_reviewer_starspace(output, reviewer, num_examples):
+#    if args.old_work_only:
+#        output.write("%s\t" % reviewer.sql_id)
+#
+#        # Input and label is all of the reviewer's work
+#        for words in reviewer.feature_vector:
+#            for word in words:
+#                output.write(word)
+#                output.write(" ")
+#            output.write("\t")
+#        output.write("\n")
+#    elif args.
+#
+
+# StarSpace mode 1: Just train based on reviewer's papers
+def train_own_papers_only(pc, train_file, num_examples):
     print "Building a training file..."
     with open(train_file, "w") as training:
         for reviewer in pc.reviewers():
@@ -310,6 +328,42 @@ def train(pc, train_file, num_examples):
                 training.write("\n")
     print "Building a training file complete!"
 
+# StarSpace mode 1: Train on a combination of each reviewer's papers and bids
+def train(pc, train_file, num_examples):
+    print "Building a training file..."
+    with open(train_file, "w") as training:
+        for reviewer in pc.reviewers():
+            if not reviewer.sql_id is None:
+                print "Creating training examples for %s" % reviewer.name()
+                training.write("%s\t" % reviewer.sql_id)
+
+                # First write out the reviewer's work
+                for words in reviewer.feature_vector:
+                    for word in words:
+                        training.write(word)
+                        training.write(" ")
+                    training.write("\t")
+
+                # Next write out their positive bids
+                examples = [sub.words for sub in reviewer.positive_bids] #[sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
+
+#                # If necessary augment the positive bids with the reviewer's own work
+#                if len(examples) < num_examples:
+#                    num_extra_examples = num_examples - len(examples)
+#                    extra_examples = random.sample(reviewer.feature_vector, min(num_extra_examples,len(reviewer.feature_vector)))
+#                    examples += extra_examples
+#                
+                for example in examples:
+                    for word in example:
+                        training.write(word)
+                        training.write(" ")
+                    training.write("\t")
+
+                training.write("\n")
+            else:
+                print "Skipping %s with missing SQL ID" % reviewer.name()
+    print "Building a training file complete!"
+
 def gen_sub_file(submissions, sub_file):
     with open(sub_file, "w") as subtext:
         for sub in submissions.values():
@@ -318,6 +372,31 @@ def gen_sub_file(submissions, sub_file):
                 subtext.write(word)
                 subtext.write(" ")
             subtext.write("\n")
+
+def gen_pc_file_mode4(pc, pc_file):
+    with open(pc_file, "w") as output:
+        for reviewer in pc.reviewers():
+            if not reviewer.sql_id is None:
+                output.write("%s\t" % reviewer.sql_id)
+                for words in reviewer.feature_vector:
+                    for word in words:
+                        output.write(word)
+                        output.write(" ")
+                examples = [sub.words for sub in reviewer.positive_bids] #[sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
+
+#                # If necessary augment the positive bids with the reviewer's own work
+#                if len(examples) < num_examples:
+#                    num_extra_examples = num_examples - len(examples)
+#                    extra_examples = random.sample(reviewer.feature_vector, min(num_extra_examples,len(reviewer.feature_vector)))
+#                    examples += extra_examples
+#                
+                for example in examples:
+                    for word in example:
+                        output.write(word)
+                        output.write(" ")
+                    output.write("\t")
+
+                output.write("\n")
 
 def gen_pc_file(pc, pc_file):
     with open(pc_file, "w") as output:
@@ -328,13 +407,7 @@ def gen_pc_file(pc, pc_file):
                     for word in words:
                         output.write(word)
                         output.write(" ")
-                if len(reviewer.feature_vector) > 0:
-                    # Pick an arbitrary publication to serve as the ``test'' input, which we ignore
                     output.write('\t')
-                    words = reviewer.feature_vector[0]
-                    for word in words:
-                        output.write(word)
-                        output.write(" ")
 
                 output.write("\n")
 
@@ -353,6 +426,7 @@ def parse_starspace_predictions(prediction_file, pc, submissions, label):
             if result:
                 if not reviewer is None:
                     # Write out the previous reviewer's bids
+                    print "Writing out %d bids for reviewer %s" % (len(bids), reviewer)
                     process_starspace_bid(reviewer, bids, label)
                 sql_id = result.group(1)
                 reviewer = id_map[sql_id]
@@ -435,7 +509,8 @@ def main():
         if args.train_count is None:
             print "Must specify --train_count"
             sys.exit(6)
-        train(pc, args.train, args.train_count)
+        #train(pc, args.train, args.train_count)
+        train_own_papers_only(pc, args.train, args.train_count)
         sys.exit(0)
 
     if not (args.realprefs is None):
