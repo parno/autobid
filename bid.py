@@ -91,19 +91,23 @@ def compare_submission_bids(reviewer, corpus, s1, s2, method):
         print "%s\t%f (%0.1f%%)" % (word.ljust(30), diff, percent)
 
 def normalize_bids(bids):
-    sorted_bids = sorted(bids, key=lambda bid: bid.score, reverse=True)
-    max_bid = sorted_bids[0].score
-    min_bid = sorted_bids[-1].score
-    norm_bids = []
-    target_min = -90
-    target_max = 100
-    for bid in bids:
-        new_score = int(round(target_min + (bid.score - min_bid) / \
-                    float((max_bid - min_bid) / \
-                          float(target_max - target_min))))
-        norm_bid = Bid(score=new_score, submission=bid.submission)
-        norm_bids.append(norm_bid)
-    return norm_bids
+    if len(bids) > 0:
+        sorted_bids = sorted(bids, key=lambda bid: bid.score, reverse=True)
+        max_bid = sorted_bids[0].score
+        min_bid = sorted_bids[-1].score
+        norm_bids = []
+        target_min = -90
+        target_max = 100
+        for bid in bids:
+            new_score = int(round(target_min + (bid.score - min_bid) / \
+                        float((max_bid - min_bid) / \
+                              float(target_max - target_min))))
+            norm_bid = Bid(score=new_score, submission=bid.submission)
+            norm_bids.append(norm_bid)
+        return norm_bids
+    else:
+        print "WARNING: Didn't receive any bids to normalize!"
+        return []
 
 def write_bid_file(dirname, filename, bids):
     bid_out = "preference,paper\n"
@@ -296,72 +300,97 @@ def train_bid_based(pc, train_file, num_examples):
                     training.write("\n")
     print "Building a training file complete!"
 
-#def write_reviewer_starspace(output, reviewer, num_examples):
-#    if args.old_work_only:
-#        output.write("%s\t" % reviewer.sql_id)
-#
-#        # Input and label is all of the reviewer's work
-#        for words in reviewer.feature_vector:
-#            for word in words:
-#                output.write(word)
-#                output.write(" ")
-#            output.write("\t")
-#        output.write("\n")
-#    elif args.
-#
 
-# StarSpace mode 1: Just train based on reviewer's papers
-def train_own_papers_only(pc, train_file, num_examples):
+# Mode 1
+def write_reviewer_input_starspace(args, output, reviewer, num_examples):
+    output.write("%s\t" % reviewer.sql_id)
+
+    # Just train based on reviewer's papers
+    if args.old_work_only:
+        # Input and label is all of the reviewer's work
+        for words in reviewer.feature_vector:
+            for word in words:
+                output.write(word)
+                output.write(" ")
+            output.write("\t")
+        output.write("\n")
+
+    # Train on a straighforward combination of each reviewer's papers and bids
+    elif args.work_and_bids:
+        # First write out the reviewer's work
+        for words in reviewer.feature_vector:
+            for word in words:
+                output.write(word)
+                output.write(" ")
+            output.write("\t")
+
+        # Next write out their positive bids
+        examples = [sub.words for sub in reviewer.positive_bids] 
+
+        for example in examples:
+            for word in example:
+                output.write(word)
+                output.write(" ")
+            output.write("\t")
+        output.write("\n")
+    # Train on a straighforward combination of each reviewer's papers and many duplicates of their bids
+    elif args.dupe_bids:
+        # First write out the reviewer's work
+        for words in reviewer.feature_vector:
+            for word in words:
+                output.write(word)
+                output.write(" ")
+            output.write("\t")
+
+        # Next write out their positive bids many times
+        examples = [sub.words for sub in reviewer.positive_bids] 
+        examples = examples * num_examples
+
+        for example in examples:
+            for word in example:
+                output.write(word)
+                output.write(" ")
+            output.write("\t")
+        output.write("\n")
+    # Train on reviewer's papers and bids necessary to achieve given ratio of (previous work / total_bids)
+    elif not args.bidratio is None:
+        # First write out the reviewer's work
+        for words in reviewer.feature_vector:
+            for word in words:
+                output.write(word)
+                output.write(" ")
+            output.write("\t")
+
+        # Next write out their positive bids many times
+        examples = [sub.words for sub in reviewer.positive_bids] 
+        target_num_examples = int((1 / float(args.bidratio)) * len(reviewer.feature_vector))
+        num_dupes = int(math.ceil(target_num_examples / float(len(examples))))
+        examples = examples * num_dupes
+        examples = examples[:target_num_examples]
+
+        for example in examples:
+            for word in example:
+                output.write(word)
+                output.write(" ")
+            output.write("\t")
+        output.write("\n")
+
+
+    else:
+        print "Unknown writing mode!"
+        sys.exit(10)
+
+# StarSpace mode 1: 
+def train(args, pc, train_file, num_examples):
     print "Building a training file..."
     with open(train_file, "w") as training:
         for reviewer in pc.reviewers():
             if not reviewer.sql_id is None:
                 print "Creating training examples for %s" % reviewer.name()
-                training.write("%s\t" % reviewer.sql_id)
-
-                # Input and label is all of the reviewer's work
-                for words in reviewer.feature_vector:
-                    for word in words:
-                        training.write(word)
-                        training.write(" ")
-                    training.write("\t")
-                training.write("\n")
-    print "Building a training file complete!"
-
-# StarSpace mode 1: Train on a combination of each reviewer's papers and bids
-def train(pc, train_file, num_examples):
-    print "Building a training file..."
-    with open(train_file, "w") as training:
-        for reviewer in pc.reviewers():
-            if not reviewer.sql_id is None:
-                print "Creating training examples for %s" % reviewer.name()
-                training.write("%s\t" % reviewer.sql_id)
-
-                # First write out the reviewer's work
-                for words in reviewer.feature_vector:
-                    for word in words:
-                        training.write(word)
-                        training.write(" ")
-                    training.write("\t")
-
-                # Next write out their positive bids
-                examples = [sub.words for sub in reviewer.positive_bids] #[sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
-
-#                # If necessary augment the positive bids with the reviewer's own work
-#                if len(examples) < num_examples:
-#                    num_extra_examples = num_examples - len(examples)
-#                    extra_examples = random.sample(reviewer.feature_vector, min(num_extra_examples,len(reviewer.feature_vector)))
-#                    examples += extra_examples
-#                
-                for example in examples:
-                    for word in example:
-                        training.write(word)
-                        training.write(" ")
-                    training.write("\t")
-
-                training.write("\n")
+                write_reviewer_input_starspace(args, training, reviewer, num_examples)
             else:
                 print "Skipping %s with missing SQL ID" % reviewer.name()
+
     print "Building a training file complete!"
 
 def gen_sub_file(submissions, sub_file):
@@ -373,48 +402,40 @@ def gen_sub_file(submissions, sub_file):
                 subtext.write(" ")
             subtext.write("\n")
 
-def gen_pc_file_mode4(pc, pc_file):
-    with open(pc_file, "w") as output:
-        for reviewer in pc.reviewers():
-            if not reviewer.sql_id is None:
-                output.write("%s\t" % reviewer.sql_id)
-                for words in reviewer.feature_vector:
-                    for word in words:
-                        output.write(word)
-                        output.write(" ")
-                examples = [sub.words for sub in reviewer.positive_bids] #[sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
-
+#def gen_pc_file_mode4(pc, pc_file):
+#    with open(pc_file, "w") as output:
+#        for reviewer in pc.reviewers():
+#            if not reviewer.sql_id is None:
+#                output.write("%s\t" % reviewer.sql_id)
+#                for words in reviewer.feature_vector:
+#                    for word in words:
+#                        output.write(word)
+#                        output.write(" ")
+#                examples = [sub.words for sub in reviewer.positive_bids[:min(num_examples,len(reviewer.positive_bids))]]
+#
 #                # If necessary augment the positive bids with the reviewer's own work
 #                if len(examples) < num_examples:
 #                    num_extra_examples = num_examples - len(examples)
 #                    extra_examples = random.sample(reviewer.feature_vector, min(num_extra_examples,len(reviewer.feature_vector)))
 #                    examples += extra_examples
 #                
-                for example in examples:
-                    for word in example:
-                        output.write(word)
-                        output.write(" ")
-                    output.write("\t")
+#                for example in examples:
+#                    for word in example:
+#                        output.write(word)
+#                        output.write(" ")
+#                    output.write("\t")
+#
+#                output.write("\n")
 
-                output.write("\n")
-
-def gen_pc_file(pc, pc_file):
+def gen_pc_file(args, pc, pc_file):
     with open(pc_file, "w") as output:
         for reviewer in pc.reviewers():
             if not reviewer.sql_id is None:
-                output.write("%s\t" % reviewer.sql_id)
-                for words in reviewer.feature_vector:
-                    for word in words:
-                        output.write(word)
-                        output.write(" ")
-                    output.write('\t')
-
-                output.write("\n")
+                write_reviewer_input_starspace(args, output, reviewer, args.train_count)
 
 def process_starspace_bid(reviewer, bids, label):
     bids = normalize_bids(bids)
     write_bid_file(reviewer.dir(), "predicted_bids.starspace.%s.txt" % label, bids)
-
 
 def parse_starspace_predictions(prediction_file, pc, submissions, label):
     id_map = create_id_to_pc_map(pc)
@@ -431,7 +452,7 @@ def parse_starspace_predictions(prediction_file, pc, submissions, label):
                 sql_id = result.group(1)
                 reviewer = id_map[sql_id]
                 bids = []
-            result = re.search("\(--\)\s*\[([\d.]+)\]\s*([\d]+)", line)
+            result = re.search("\(--\)\s*\[([\d.-]+)\]\s*([\d]+)", line)
             if result:
                 pref = result.group(1)
                 sub_id = int(result.group(2))
@@ -467,6 +488,11 @@ def main():
 
     parser.add_argument('--predictions', action='store', help="File to parse for StarSpace predictions", required=False)
     parser.add_argument('--bidlabel', action='store', help="Label for generated bid files", required=False)
+    
+    parser.add_argument('--old_work_only', action='store_true', help="Only use PC member's old work", required=False)
+    parser.add_argument('--work_and_bids', action='store_true', help="Use PC member's old work and their positive bids", required=False)
+    parser.add_argument('--dupe_bids', action='store_true', help="Use PC member's old work and many copies of their positive bids", required=False)
+    parser.add_argument('--bidratio', action='store', help="Ratio of previous work of positive bids", required=False)
 
     #parser.add_argument('--s1', action='store', help="First submission to compare a reviewer's calculated bid", required=False)
     #parser.add_argument('--s2', action='store', help="Second submission to compare a reviewer's calculated bid", required=False)
@@ -486,7 +512,7 @@ def main():
     pc.load(args.cache)
 
     if not args.pcfile is None:
-        gen_pc_file(pc, args.pcfile)
+        gen_pc_file(args, pc, args.pcfile)
         sys.exit(0)
         
 
@@ -509,8 +535,7 @@ def main():
         if args.train_count is None:
             print "Must specify --train_count"
             sys.exit(6)
-        #train(pc, args.train, args.train_count)
-        train_own_papers_only(pc, args.train, args.train_count)
+        train(args, pc, args.train, args.train_count)
         sys.exit(0)
 
     if not (args.realprefs is None):
@@ -532,7 +557,7 @@ def main():
             print "Must specify --bidlabel"
             sys.exit(7)
         parse_starspace_predictions(args.predictions, pc, submissions, args.bidlabel)
-        sys.exit(6)
+        sys.exit(0)
     
     if args.corpus is None:
         print "Must specify --corpus to generate bids"
