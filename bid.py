@@ -90,21 +90,31 @@ def compare_submission_bids(reviewer, corpus, s1, s2, method):
         percent = 100 * (diff / pos_diff_total if diff > 0 else diff / neg_diff_total)
         print "%s\t%f (%0.1f%%)" % (word.ljust(30), diff, percent)
 
-def normalize_bids(bids):
+def normalize_bids_internal(bids, min, max):
+    sorted_bids = sorted(bids, key=lambda bid: bid.score, reverse=True)
+    max_bid = sorted_bids[0].score
+    min_bid = sorted_bids[-1].score
+    norm_bids = []
+    target_min = min
+    target_max = max
+    for bid in bids:
+        new_score = int(round(target_min + (bid.score - min_bid) / \
+                    float((max_bid - min_bid) / \
+                          float(target_max - target_min))))
+        norm_bid = Bid(score=new_score, submission=bid.submission)
+        norm_bids.append(norm_bid)
+    return norm_bids
+
+def normalize_bids(bids, top_k=30):
     if len(bids) > 0:
-        sorted_bids = sorted(bids, key=lambda bid: bid.score, reverse=True)
-        max_bid = sorted_bids[0].score
-        min_bid = sorted_bids[-1].score
-        norm_bids = []
-        target_min = -90
-        target_max = 100
-        for bid in bids:
-            new_score = int(round(target_min + (bid.score - min_bid) / \
-                        float((max_bid - min_bid) / \
-                              float(target_max - target_min))))
-            norm_bid = Bid(score=new_score, submission=bid.submission)
-            norm_bids.append(norm_bid)
-        return norm_bids
+        if len(bids) > top_k:
+            # Make the first top_k bids positive and the rest negative
+            sorted_bids = sorted(bids, key=lambda bid: bid.score, reverse=True)
+            top = normalize_bids_internal(sorted_bids[:top_k], 1, 100)
+            bottom = normalize_bids_internal(sorted_bids[top_k:], -90, 0)
+            return top + bottom
+        else:
+            return normalize_bids_internal(bids, -90, 100)
     else:
         print "WARNING: Didn't receive any bids to normalize!"
         return []
@@ -121,7 +131,7 @@ def write_bid_file(dirname, filename, bids):
     with open("%s/%s" % (dirname, filename), 'w') as bid_file:
         bid_file.write(bid_out)
 
-def create_reviewer_bid(reviewer, submissions, lda_model):
+def create_reviewer_bid(reviewer, submissions, lda_model, top_k):
     print "Creating bid for reviewer %s..." % reviewer.name()
 
     # Analyze topics for the reviewer 
@@ -143,7 +153,7 @@ def create_reviewer_bid(reviewer, submissions, lda_model):
         b = Bid(score, submission)
         bids.append(b)
 
-    bids = normalize_bids(bids)
+    bids = normalize_bids(bids, top_k)
     
     write_bid_file(reviewer.dir(), "bid.csv", bids)
 
@@ -433,8 +443,8 @@ def gen_pc_file(args, pc, pc_file):
             if not reviewer.sql_id is None:
                 write_reviewer_input_starspace(args, output, reviewer, args.train_count)
 
-def process_starspace_bid(reviewer, bids, label):
-    bids = normalize_bids(bids)
+def process_starspace_bid(reviewer, bids, label, top_k):
+    bids = normalize_bids(bids, top_k)
     write_bid_file(reviewer.dir(), "predicted_bids.starspace.%s.txt" % label, bids)
     if not (reviewer.sql_id == None):
         # Write out a sql command to insert the bid
@@ -444,7 +454,7 @@ def process_starspace_bid(reviewer, bids, label):
                 customized_sql = sql % (bid.submission.id, reviewer.sql_id, bid.score)
                 mysql_file.write(customized_sql)
 
-def parse_starspace_predictions(prediction_file, pc, submissions, label):
+def parse_starspace_predictions(prediction_file, pc, submissions, label, top_k):
     id_map = create_id_to_pc_map(pc)
     reviewer = None
     bids = []
@@ -455,7 +465,7 @@ def parse_starspace_predictions(prediction_file, pc, submissions, label):
                 if not reviewer is None:
                     # Write out the previous reviewer's bids
                     print "Writing out %d bids for reviewer %s" % (len(bids), reviewer)
-                    process_starspace_bid(reviewer, bids, label)
+                    process_starspace_bid(reviewer, bids, label, top_k)
                 sql_id = result.group(1)
                 reviewer = id_map[sql_id]
                 bids = []
@@ -465,11 +475,11 @@ def parse_starspace_predictions(prediction_file, pc, submissions, label):
                 sub_id = int(result.group(2))
                 bids.append(Bid(score=float(pref), submission=submissions[sub_id]))
         # Write out the last reviewer
-        process_starspace_bid(reviewer, bids, label)
+        process_starspace_bid(reviewer, bids, label, top_k)
 
-def create_bids(pc, submissions, lda_model):
+def create_bids(pc, submissions, lda_model, top_k):
     for reviewer in pc.reviewers():
-        create_reviewer_bid(reviewer, submissions, lda_model)
+        create_reviewer_bid(reviewer, submissions, lda_model, top_k)
 
 def main():
     bid_sql = "select pt.paperId, pr.contactId, pr.preference from " + \
@@ -563,12 +573,18 @@ def main():
         if args.bidlabel is None:
             print "Must specify --bidlabel"
             sys.exit(7)
-        parse_starspace_predictions(args.predictions, pc, submissions, args.bidlabel)
+        if args.top_k is None:
+            print "Must specify --top_k"
+            sys.exit(8)
+        parse_starspace_predictions(args.predictions, pc, submissions, args.bidlabel, args.top_k)
         sys.exit(0)
     
     if args.corpus is None:
         print "Must specify --corpus to generate bids"
         sys.exit(5)
+    if args.top_k is None:
+        print "Must specify --top_k to generate bids"
+        sys.exit(9)
 
     lda_model = load_model(args.corpus)
 
@@ -589,9 +605,9 @@ def main():
 
 
     if not args.bid == None:
-        create_reviewer_bid(pc.reviewer(args.bid), submissions, lda_model)
+        create_reviewer_bid(pc.reviewer(args.bid), submissions, lda_model, args.top_k)
     else:
-        create_bids(pc, submissions, lda_model)
+        create_bids(pc, submissions, lda_model, args.top_k)
 
 
 if (__name__=="__main__"):
