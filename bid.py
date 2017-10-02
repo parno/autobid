@@ -449,10 +449,11 @@ def process_starspace_bid(reviewer, bids, label, top_k):
     write_bid_file(reviewer.dir(), "predicted_bids.starspace.%s.txt" % label, bids)
     if not (reviewer.sql_id == None):
         # Write out a sql command to insert the bid
-        sql = "INSERT INTO PaperReviewPreference (paperId, contactId, preference) VALUES (%s, %s, %s);\n"
+        sql = "INSERT INTO PaperReviewPreference (paperId, contactId, preference) VALUES (%s, %s, %s) "
+        sql += " ON DUPLICATE KEY UPDATE preference = %s"
         with open("%s/bid.mysql"% reviewer.dir(), 'w') as mysql_file:
             for bid in sorted(bids, key=lambda bid: bid.score, reverse=True): 
-                customized_sql = sql % (bid.submission.id, reviewer.sql_id, bid.score)
+                customized_sql = sql % (bid.submission.id, reviewer.sql_id, bid.score, bid.score)
                 mysql_file.write(customized_sql)
 
 def parse_starspace_predictions(prediction_file, pc, submissions, label, top_k):
