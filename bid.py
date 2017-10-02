@@ -159,10 +159,11 @@ def create_reviewer_bid(reviewer, submissions, lda_model, top_k):
 
     if not (reviewer.sql_id == None):
         # Write out a sql command to insert the bid
-        sql = "INSERT INTO PaperReviewPreference (paperId, contactId, preference) VALUES (%s, %s, %s);\n"
+        sql = "INSERT INTO PaperReviewPreference (paperId, contactId, preference) VALUES (%s, %s, %s) "
+        sql += " ON DUPLICATE KEY UPDATE preference = %s"
         with open("%s/bid.mysql"% reviewer.dir(), 'w') as mysql_file:
             for bid in sorted(bids, key=lambda bid: bid.score, reverse=True): 
-                customized_sql = sql % (bid.submission.id, reviewer.sql_id, bid.score)
+                customized_sql = sql % (bid.submission.id, reviewer.sql_id, bid.score, bid.score)
                 mysql_file.write(customized_sql)
 
     print "Creating bid for reviewer %s complete!" % reviewer.name()
