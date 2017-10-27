@@ -519,13 +519,13 @@ def main():
     
     args = parser.parse_args()
 
-#    if not args.subfile is None:
-#        if args.submissions is None: 
-#            print "Must specify --submissions"
-#            sys.exit(5)
-#        submissions = load_submissions(args.submissions)
-#        gen_sub_file(submissions, args.subfile)
-#        sys.exit(0)
+    if not args.subfile is None:
+        if args.submissions is None: 
+            print "Must specify --submissions"
+            sys.exit(5)
+        submissions = load_submissions(args.submissions)
+        gen_sub_file(submissions, args.subfile)
+        sys.exit(0)
 
     pc = PC()
     pc.load(args.cache)
