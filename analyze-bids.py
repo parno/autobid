@@ -106,6 +106,56 @@ def get_changed_bids(month):
             "Cristiano_Giuffrida",
             "Jay_Lorch"
         ]
+    elif month == "october":
+        return [\
+            "Andreas_Haeberlen",
+            "Niels_Provos",
+            "Cynthia_Sturton",
+            "Michelle_Mazurek",
+            "Yinqian_Zhang",
+            "Prateek_Mittal",
+            "Mariana_Raykova",
+            "David_Evans",
+            "Alex_Snoeren",
+            "Srini_Devadas",
+            "Rob_Johnson",
+            "Rob_Cunningham",
+            "Simha_Sethumadhavan",
+            "Matteo_Maffei",
+            "Christina_Pöpper",
+            "Andrew_Miller",
+            "Juan_Caballero",
+            "Adam_Smith",
+            "Michael_Hicks",
+            "Dan_Wallach",
+            "Payman_Mohassel",
+            "Gang_Tan",
+            "Cristina_Nita-Rotaru",
+            "Marcus_Peinado",
+            "Cédric_Fournet",
+            "Prateek_Saxena",
+            "Tao_Xie",
+            "Kirill_Levchenko",
+            "Matthew_Hicks",
+            "Serge_Egelman",
+            "Nadia_Heninger",
+            "Carmela_Troncoso",
+            "Gianluca_Stringhini",
+            "Tudor_Dumitras",
+            "Long_Lu",
+            "Manos_Antonakakis",
+            "Brent_Byunghoon_Kang",
+            "Herbert_Bos",
+            "Cristiano_Giuffrida",
+            "Ruby_Lee",
+            "Andrei_Sabelfeld",
+            "Kurt_Thomas",
+            "Jay_Lorch",
+            "Davide_Balzarotti",
+            "Hovav_Shacham",
+            "Leyla_Bilge"
+            ]
+
     else:
         return []
 
