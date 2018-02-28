@@ -17,6 +17,15 @@ brew install wget
 brew cask install pdftotext
 ```
 
+You'll also need a customized copy of Facebook's StarSpace tool, which you can aquire via
+```
+git clone git@github.com:parno/Starspace.git
+```
+Follow the README.md instructions for compiling it.  The current `makefile` assumes you 
+clone StarSpace into a sibling directory to this one.  If that's not the case, adjust
+the `STARSPACE` variable in the `makefile` appropriately.
+
+
 ## Optional
 
 I experimented with using the Python library `slate` to parse PDFs, but
@@ -55,6 +64,10 @@ The current pipeline consists of the following steps:
     member's status will be reset, and the script will attempt to fetch
     publications again.
 
+    Suggestion: Before ingesting `pc-info.csv` purge any weird Unicode characters
+    you encounter.  They create annoying issues with various command-line utilities,
+    so life is easier without them.  Making `fetch.py` do this automatically is future work.
+
 2. Analyze the PC publications:
 
     `./analysis.py --cache pc.dat`
@@ -63,46 +76,53 @@ The current pipeline consists of the following steps:
     this script will spawn threads equal to the number of your CPUs.  Use
     `-j` to choose another value.
 
-3. Analyze the submissions:
-
-    `./analysis.py --submissions submission_dir`
-
-    Saves the results in `submission_dir/submissions.dat`
-
-4. Build a topic model that maps word occurences to different topics.  
-
-    `./analysis.py --corpus corpus_dir`
-
-   The `corpus_dir` can be any directory of representative publications.
-   You can use PDFs from a previous year, or pool all of the PC PDFs and/or
-   submissions into the directory.  The model is saved in
-   `corpus_dir/lda_model.*`.  You can change the parameters used to learn
-   the model (e.g., how many topics to extract, how many passes to make,
-   etc.) by editing the call to `gensim.models.ldamodel.LdaModel`.
-
-5. [Optional] Associate PC reviewers with SQL IDs.
+3. Associate PC reviewers with SQL IDs.
 
    `./util.py --cache pc.dat --pcids pc-info.csv`
 
    where the CSV file contains a comma-separated first name, last name, and
-   SQL ID.  For HotCRP, try:
+   SQL ID.  For HotCRP, try running the MySQL query:
    `select firstName, lastName, contactId from ContactInfo`
    This will allow the scripts to create MySQL scripts that can feed bid
    info directly into the database
 
-6. Generate bids for submissions:
+3. (Optional) Feed in data on papers that PC members have previously bid on.  
+    First, analyze the previous submissions:
 
-    `./bid.py --cache pc.dat --submissions submission_dir --corpus corpus_dir`
+    `./analysis.py --submissions submission_dir`
 
-    For each PC member, this will generate a bid for each submission in
-    `submission_dir`.  The bids will be output in a `bid.csv` file in each
-    member's directory, as well as a `bid.mysql` file if you completed step
-    5 above. To make use of the SQL commands, try something like:
+    Then ingest the bid info:
+    
+    `./bid.py --learn -c pc.dat --realprefs prefs/real_prefs.october.csv --submissions submission_dir --top_k 15`
 
-    ```
-    for b in `ls */bid.mysql`; do cat $b >> bids.mysql; done
-    mysql db_name -u user_name -p < bids.mysql 
-    ```
+    This expects to find all of the previous bidding data in `prefs/real_prefs.october.csv`, and the corresponding
+    submitted PDFs in the `submission_dir` directory.  It will look at the top 15 papers that each PC member bid on.
+
+4. Train a model using StarSpace
+
+    `make train`
+
+    Note that if you subsequently add more prior bid info (following the step above), you'll need to rerun this.
+
+5. Generate bids for new submissions:
+    Edit the `MONTH` variable in the `makefile` and then run:
+
+    `make bids`
+
+    This will take the information in `pc.dat`, feed it to StarSpace and 
+    use it to generate bids.  It assumes your new submissions are stored
+    in a path defined by the `SUBMISSIONS_DIR` in the `makefile`.  If that
+    isn't the case, update the `makefile` appropriately.
+
+    Sanity check the bids the end up in `bids.MONTH.mysql`.
+
+
+6. Load the bids into the MySQL database:
+    
+    `make load_sql`
+
+For an on-going model, you'll need to repeat steps 5 and 6 each month.  You can
+also optionally repeat steps 3 and 4 to incorporate bids from the previous month.
 
 At any time, you can use the [util.py](util.py) script to check on the status of the
 PC and to reset the status of an individual PC member or the entire PC, in

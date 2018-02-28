@@ -1,74 +1,34 @@
-# Experimental commands for training and testing StarSpace-based bidding
 
-#LABEL=old_only
-#BIDARGS=--train_count 10 --old_work_only
+MONTH=september
+SUBMISSIONS_DIR=submissions/sp2018-$(MONTH)
+NUM_SUBMISSIONS=`ls $(SUBMISSIONS_DIR) | wc -l`
+STARSPACE=../Starspace/starspace
+TOP_K=25		# Script ensures that TOP_K ranked papers for a PC member have a positive bid; everything else has a negative bid
 
-#LABEL=work_and_bids_30
-#BIDARGS=--train_count 30 --work_and_bids
+# StarSpace parameters that seem to work reasonably well.  YMMV
+DIM=50
+BIDRATIO=0.75
+TRAIN_COUNT=10
 
 
-#LABEL=dupe10
-#BIDARGS=--train_count 10 --dupe_bids
+all: bids 
 
-#LABEL=bidratio0.5
-#BIDARGS=--train_count 10 --bidratio 0.5
+train:
+	./bid.py -c pc.dat --train pc.training --train_count $(TRAIN_COUNT) --bidratio $(BID_RATIO)
+	$(STARSPACE) train -trainFile pc.training -model pcmatching -fileFormat labelDoc -trainMode 1 -thread 5 -dim $(DIM)
 
-#LABEL=bidratio0.25
-#BIDARGS=--train_count 10 --bidratio 0.25
+bids:
+	echo Analyzing submissions
+	./analysis.py --submissions $(SUBMISSIONS_DIR)
+	echo Preparing submissions for StarSpace
+	./bid.py -c pc.dat --subfile $(SUBMISSIONS_DIR)/submissions.starspace.txt --submissions $(SUBMISSIONS_DIR)
+	echo Generating predictions
+	$(STARSPACE) test -testFile pc.test -model pcmatching -fileFormat labelDoc -basedoc $(SUBMISSIONS_DIR)/submissions.starspace.txt -predictionFile $(SUBMISSIONS_DIR)/prediction.txt -K $(NUM_SUBMISSIONS)
+	echo Splitting the predictions into bids 
+	./bid.py --predictions $(SUBMISSIONS_DIR)/prediction.txt --submissions $(SUBMISSIONS_DIR) -c pc.dat --bidlabel bidratio$(BID_RATIO)dim$(DIM) --top_k $(TOP_K)
+	echo Merging SQL commands for the bids
+	for b in `ls pc_data/*/bid.mysql`; do cat $b >> bids.$(MONTH).mysql; done
 
-#LABEL=bidratio0.75
-#BIDARGS=--train_count 10 --bidratio 0.75 
+load_sql:
+	mysql sp2018 < bids.$(MONTH).mysql 
 
-#LABEL=bidratio0.75ngrams3
-#BIDARGS=--train_count 10 --bidratio 0.75 
-
-#LABEL=bidratio0.75ngrams7
-#BIDARGS=--train_count 10 --bidratio 0.75 
-
-#LABEL=bidratio0.75dim50
-#BIDARGS=--train_count 10 --bidratio 0.75 
-
-#LABEL=bidratio0.75dim100
-#BIDARGS=--train_count 10 --bidratio 0.75 
-
-#LABEL=bidratio0.75dim100epoch10
-#BIDARGS=--train_count 10 --bidratio 0.75 
-
-#LABEL=bidratio0.75dim50epoch10
-#BIDARGS=--train_count 10 --bidratio 0.75 
-
-#LABEL=bidratio0.75dim75
-#BIDARGS=--train_count 10 --bidratio 0.75 
-
-#LABEL=bidratio0.62dim50
-#BIDARGS=--train_count 10 --bidratio 0.62
-
-LABEL=bidratio0.25dim50
-BIDARGS=--train_count 10 --bidratio 0.25
-
-all: experiment
-#all: starspace 
-
-starspace:
-	echo Training...
-	../Starspace/starspace train -trainFile pc.training -model pcmatching -fileFormat labelDoc -trainMode 1 -thread 5 -dim 50 
-	echo Predicting...
-	../Starspace/starspace test -testFile pc.test -model pcmatching -fileFormat labelDoc -basedoc submissions/sp2018-september/submissions.starspace.txt -predictionFile submissions/sp2018-september/prediction.txt -K 50
-	echo Splitting predictions...
-	./bid.py --predictions submissions/sp2018-september/prediction.txt --submissions submissions/sp2018-september -c pc.dat --bidlabel $(LABEL)
-	echo Analyzing bids...
-	./analyze-bids.py --calc predicted_bids.starspace.$(LABEL).txt --changed september --month september --top_k 10 | tee experiments/mode1.$(LABEL).txt
-
-experiment:
-	echo Writing out training data...
-	./bid.py -c pc.dat --train pc.training $(BIDARGS)
-	echo Writing out PC members...
-	./bid.py -c pc.dat --pcfile pc.test  $(BIDARGS)
-	echo Training...
-	../Starspace/starspace train -trainFile pc.training -model pcmatching -fileFormat labelDoc -trainMode 1 -thread 5 
-	echo Predicting...
-	../Starspace/starspace test -testFile pc.test -model pcmatching -fileFormat labelDoc -basedoc submissions/sp2018-september/submissions.starspace.txt -predictionFile submissions/sp2018-september/prediction.txt -K 50
-	echo Splitting predictions...
-	./bid.py --predictions submissions/sp2018-september/prediction.txt --submissions submissions/sp2018-september -c pc.dat --bidlabel $(LABEL)
-	echo Analyzing bids...
-	./analyze-bids.py --calc predicted_bids.starspace.$(LABEL).txt --changed september --month september --top_k 10 | tee experiments/mode1.$(LABEL).txt
