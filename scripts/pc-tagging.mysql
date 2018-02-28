@@ -1,0 +1,22 @@
+# Tag everyone who has completed all of their reviews with #thank 
+update ContactInfo set contactTags = concat(contactTags, binary(" thank#0")) where contactId in
+(select id from (select ContactInfo.contactId as id, firstName, lastName, sum(reviewNeedsSubmit) 
+  from PaperReview inner join ContactInfo 
+  where PaperReview.contactId = ContactInfo.contactId and PaperReview.reviewRound=5 
+  group by ContactInfo.contactId having sum(reviewNeedsSubmit) = 0) as reviewers);
+
+# Tag everyone with one or more incomplete reviews in the current round with #remind
+update ContactInfo set contactTags = concat(contactTags, binary(" remind#0")) where contactId in
+(select id from (select ContactInfo.contactId as id, firstName, lastName, sum(reviewNeedsSubmit) 
+  from PaperReview inner join ContactInfo 
+  where PaperReview.contactId = ContactInfo.contactId and PaperReview.reviewRound=5 
+  group by ContactInfo.contactId having sum(reviewNeedsSubmit) > 0) as reviewers);
+
+# See who still has reviews pending
+select ContactInfo.contactId as id, firstName, lastName, sum(reviewNeedsSubmit) 
+  from PaperReview inner join ContactInfo 
+  where PaperReview.contactId = ContactInfo.contactId and PaperReview.reviewRound=5 
+  group by ContactInfo.contactId having sum(reviewNeedsSubmit) > 0;
+
+# See how many reviews we're missing in total
+select sum(reviewNeedsSubmit) from PaperReview inner join ContactInfo where PaperReview.contactId = ContactInfo.contactId and PaperReview.reviewRound=5;

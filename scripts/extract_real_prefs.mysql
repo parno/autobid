@@ -1,0 +1,1 @@
+select PaperTag.paperId, PaperReviewPreference.contactId, PaperReviewPreference.preference from PaperTag inner join PaperReviewPreference on PaperReviewPreference.paperId = PaperTag.paperId where tag = "november";

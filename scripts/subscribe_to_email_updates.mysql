@@ -1,0 +1,9 @@
+
+# Commands to subscribe someone (e.g., an Associate Chair) to email notifications for every paper with a particular tag
+
+select contactId, firstName,lastName from ContactInfo where lastName = "Hicks";
+==> 83
+3 => Please email notification emails
+
+insert into PaperWatch (paperId, contactId, watch)
+select paperId, 83, 3 from PaperTag where tag = "hicks";
