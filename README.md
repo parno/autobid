@@ -1,6 +1,12 @@
 # Autobid
 Scripts to automatically generate submission bids for PC members.
 
+This version uses a fairly naive matching algorithm based on the 
+[Toronto Paper Matching System](http://www.cs.toronto.edu/~lcharlin/papers/tpms.pdf).
+The `prior_bids` branch uses a more sophsticated matching algorithm
+based on [StarSpace](https://arxiv.org/abs/1709.03856), and it
+also has machinery to incorporate prior bidding information.
+
 # Dependencies
 
 The scripts are writen for Python 2 and rely on a number of Python
