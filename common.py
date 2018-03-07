@@ -139,6 +139,14 @@ class PC:
     def reviewer(self, reviewer_name):
         return self.__reviewers[reviewer_name]
 
+    def remove_reviewer(self, reviewer_name):
+        if reviewer_name in self.__reviewers:
+            del self.__reviewers[reviewer_name]
+            return True
+        else:
+            print "Sorry, %s is not recognized as a current PC member" % reviewer_name
+            return False
+
     def save(self, filename):
         print "Saving reviewer information..."
         with open(filename, "wb") as pickler:
