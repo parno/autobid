@@ -18,6 +18,8 @@ train:
 	$(STARSPACE) train -trainFile pc.training -model pcmatching -fileFormat labelDoc -trainMode 1 -thread 5 -dim $(DIM)
 
 bids:
+	echo Writing out PC members...
+	./bid.py -c pc.dat --pcfile pc.test --train_count $(TRAIN_COUNT) --bidratio $(BID_RATIO)
 	echo Analyzing submissions
 	./analysis.py --submissions $(SUBMISSIONS_DIR)
 	echo Preparing submissions for StarSpace
