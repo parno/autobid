@@ -103,7 +103,7 @@ def is_digit(word):
 
 def find_words(string):
     #words = page.lower().split()
-    words = re.findall('\s(\w+)\s', string.lower())
+    words = re.findall('(\w+)', string.lower())
     new_words = []
     for w in words:
         if not is_digit(w) and len(w) > 1:  # Reject numbers and single letters
